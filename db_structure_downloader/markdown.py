@@ -7,7 +7,15 @@ from db_structure_downloader.db import Column, Relation, TableMetadata
 
 
 _TODO_PURPOSE = "_TODO: describe purpose_"
-_TODO_MEANING = "_TODO_"
+
+# Syntec-wide column conventions. Keys are matched case-insensitively.
+_HARDCODED_MEANINGS: dict[str, str] = {
+    "id": "Unique internal row Identifiers (Used for JOINS)",
+    "guid": "Globally unique identifier (Used for record lookup)",
+    "created": "Timestamp for record creation",
+    "modified": "Timestamp for record last modification",
+    "core_status_id": "Softdelete status ID",
+}
 
 
 def render(table: TableMetadata) -> str:
@@ -19,10 +27,12 @@ def render(table: TableMetadata) -> str:
     parts.append(f"**Purpose:** {purpose or _TODO_PURPOSE}")
     parts.append("")
 
+    outgoing_by_column = {rel.from_column: rel for rel in table.outgoing}
+
     parts.append("| Column | Type | Meaning |")
     parts.append("|---|---|---|")
     for col in table.columns:
-        meaning = _column_meaning(col)
+        meaning = _column_meaning(col, outgoing_by_column)
         parts.append(f"| {col.name} | {col.type} | {meaning} |")
 
     has_relations = bool(table.outgoing) or bool(table.incoming)
@@ -37,12 +47,21 @@ def render(table: TableMetadata) -> str:
     return "\n".join(parts) + "\n"
 
 
-def _column_meaning(col: Column) -> str:
+def _column_meaning(col: Column, outgoing_by_column: dict[str, Relation]) -> str:
     if col.comment.strip():
         return _escape_pipes(col.comment.strip())
+
+    name_lower = col.name.lower()
+    if name_lower in _HARDCODED_MEANINGS:
+        return _HARDCODED_MEANINGS[name_lower]
+
+    if name_lower.endswith("_id") and col.name in outgoing_by_column:
+        return f"Foreign key {outgoing_by_column[col.name].to_table}"
+
     if col.is_pk:
         return "PK"
-    return _TODO_MEANING
+
+    return col.name
 
 
 def _format_relation(rel: Relation) -> str:

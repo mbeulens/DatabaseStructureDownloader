@@ -2,6 +2,13 @@ from db_structure_downloader.db import Column, Relation, TableMetadata
 from db_structure_downloader.markdown import render
 
 
+ID_MEANING = "Unique internal row Identifiers (Used for JOINS)"
+GUID_MEANING = "Globally unique identifier (Used for record lookup)"
+CREATED_MEANING = "Timestamp for record creation"
+MODIFIED_MEANING = "Timestamp for record last modification"
+CORE_STATUS_MEANING = "Softdelete status ID"
+
+
 def test_full_table_renders_all_sections():
     table = TableMetadata(
         name="customers",
@@ -27,9 +34,9 @@ def test_full_table_renders_all_sections():
         "\n"
         "| Column | Type | Meaning |\n"
         "|---|---|---|\n"
-        "| id | char(36) | PK |\n"
+        f"| id | char(36) | {ID_MEANING} |\n"
         "| name | varchar(200) | Legal name |\n"
-        "| kvk_number | varchar(8) | _TODO_ |\n"
+        "| kvk_number | varchar(8) | kvk_number |\n"
         "\n"
         "**Relations:**\n"
         "- `contacts.customer_id → customers.id`\n"
@@ -39,24 +46,151 @@ def test_full_table_renders_all_sections():
     assert render(table) == expected
 
 
-def test_empty_comments_emit_todo_placeholders():
+def test_empty_table_comment_emits_purpose_placeholder():
     table = TableMetadata(
         name="orders",
         comment="",
+        columns=[Column(name="id", type="bigint", comment="", is_pk=True)],
+        outgoing=[],
+        incoming=[],
+    )
+
+    assert "**Purpose:** _TODO: describe purpose_" in render(table)
+
+
+def test_column_with_comment_uses_comment_verbatim():
+    table = TableMetadata(
+        name="customers",
+        comment="",
         columns=[
-            Column(name="id", type="bigint", comment="", is_pk=True),
-            Column(name="amount", type="decimal(10,2)", comment="", is_pk=False),
+            Column(name="id", type="char(36)", comment="My PK comment", is_pk=True),
+            Column(name="created", type="timestamp", comment="Set in app code", is_pk=False),
         ],
         outgoing=[],
         incoming=[],
     )
 
     result = render(table)
+    # COLUMN_COMMENT wins over hardcoded meanings.
+    assert "| id | char(36) | My PK comment |" in result
+    assert "| created | timestamp | Set in app code |" in result
+    assert ID_MEANING not in result
+    assert CREATED_MEANING not in result
 
-    assert "**Purpose:** _TODO: describe purpose_" in result
-    assert "| amount | decimal(10,2) | _TODO_ |" in result
-    # PK column with no comment still gets "PK" not "_TODO_"
-    assert "| id | bigint | PK |" in result
+
+def test_hardcoded_column_names_get_canonical_meanings():
+    table = TableMetadata(
+        name="anything",
+        comment="",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="guid", type="char(36)", comment="", is_pk=False),
+            Column(name="created", type="timestamp", comment="", is_pk=False),
+            Column(name="modified", type="timestamp", comment="", is_pk=False),
+            Column(name="core_status_id", type="int", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert f"| id | bigint | {ID_MEANING} |" in result
+    assert f"| guid | char(36) | {GUID_MEANING} |" in result
+    assert f"| created | timestamp | {CREATED_MEANING} |" in result
+    assert f"| modified | timestamp | {MODIFIED_MEANING} |" in result
+    assert f"| core_status_id | int | {CORE_STATUS_MEANING} |" in result
+
+
+def test_hardcoded_match_is_case_insensitive():
+    table = TableMetadata(
+        name="anything",
+        comment="",
+        columns=[
+            Column(name="ID", type="bigint", comment="", is_pk=True),
+            Column(name="Created", type="timestamp", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert f"| ID | bigint | {ID_MEANING} |" in result
+    assert f"| Created | timestamp | {CREATED_MEANING} |" in result
+
+
+def test_id_suffix_with_outgoing_fk_renders_as_foreign_key():
+    table = TableMetadata(
+        name="engagements",
+        comment="",
+        columns=[
+            Column(name="id", type="char(36)", comment="", is_pk=True),
+            Column(name="customer_id", type="char(36)", comment="", is_pk=False),
+        ],
+        outgoing=[
+            Relation(from_table="engagements", from_column="customer_id",
+                     to_table="customers", to_column="id"),
+        ],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert "| customer_id | char(36) | Foreign key customers |" in result
+
+
+def test_id_suffix_without_relation_falls_back_to_column_name():
+    # An *_id column that is NOT a real FK (no INFORMATION_SCHEMA row) must
+    # not be labelled as a foreign key — fall through to the column name.
+    table = TableMetadata(
+        name="webhook_events",
+        comment="",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="external_id", type="varchar(64)", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert "| external_id | varchar(64) | external_id |" in result
+
+
+def test_core_status_id_hardcoded_meaning_beats_fk_meaning():
+    # core_status_id is in the hardcoded list AND ends in _id and may have an
+    # FK; the hardcoded meaning is more specific and must win.
+    table = TableMetadata(
+        name="customers",
+        comment="",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="core_status_id", type="int", comment="", is_pk=False),
+        ],
+        outgoing=[
+            Relation(from_table="customers", from_column="core_status_id",
+                     to_table="core_status", to_column="id"),
+        ],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert f"| core_status_id | int | {CORE_STATUS_MEANING} |" in result
+    assert "Foreign key core_status" not in result
+
+
+def test_default_fallback_uses_column_name():
+    table = TableMetadata(
+        name="logs",
+        comment="Append-only audit log.",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="message", type="text", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert "| message | text | message |" in result
 
 
 def test_no_relations_section_when_no_fks():
@@ -74,8 +208,7 @@ def test_no_relations_section_when_no_fks():
     result = render(table)
 
     assert "**Relations:**" not in result
-    # Last line is still the columns table row, plus a single trailing newline.
-    assert result.endswith("| message | text | _TODO_ |\n")
+    assert result.endswith("| message | text | message |\n")
 
 
 def test_pipe_in_column_comment_is_escaped():
