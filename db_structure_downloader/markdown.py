@@ -6,6 +6,12 @@ from __future__ import annotations
 from db_structure_downloader.db import Column, Relation, TableMetadata
 
 
+# When a table is referenced by more than this many other tables, the
+# remaining incoming-FK rows are collapsed into a single summary line.
+# Soft-delete / status / audit reference tables would otherwise emit 200+
+# near-identical lines that drown out useful chunks during RAG retrieval.
+_MAX_INCOMING_RELATIONS = 25
+
 # Syntec-wide column conventions. Keys are matched case-insensitively.
 _HARDCODED_MEANINGS: dict[str, str] = {
     "id": "Unique internal row Identifiers (Used for JOINS)",
@@ -39,8 +45,18 @@ def render(table: TableMetadata) -> str:
         parts.append("**Relations:**")
         for rel in sorted(table.outgoing, key=lambda r: r.from_column):
             parts.append(f"- `{_format_relation(rel)}`")
-        for rel in sorted(table.incoming, key=lambda r: (r.from_table, r.from_column)):
+        sorted_incoming = sorted(
+            table.incoming, key=lambda r: (r.from_table, r.from_column)
+        )
+        for rel in sorted_incoming[:_MAX_INCOMING_RELATIONS]:
             parts.append(f"- `{_format_relation(rel)}`")
+        overflow = len(sorted_incoming) - _MAX_INCOMING_RELATIONS
+        if overflow > 0:
+            parts.append(
+                f"- …and {overflow} more inbound foreign keys "
+                "(likely a system-wide marker like a status/audit reference "
+                "— don't reason about ownership from this list)."
+            )
 
     return "\n".join(parts) + "\n"
 

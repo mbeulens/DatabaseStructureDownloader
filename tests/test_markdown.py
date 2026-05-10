@@ -249,6 +249,73 @@ def test_no_relations_section_when_no_fks():
     assert result.endswith("| message | text |  |\n")
 
 
+def test_incoming_relations_under_cap_are_all_shown():
+    table = TableMetadata(
+        name="core_status",
+        comment="",
+        columns=[Column(name="id", type="int", comment="", is_pk=True)],
+        outgoing=[],
+        incoming=[
+            Relation(from_table=f"t{i:02d}", from_column="core_status_id",
+                     to_table="core_status", to_column="id")
+            for i in range(25)
+        ],
+    )
+
+    result = render(table)
+    assert "more inbound foreign keys" not in result
+    # All 25 rows present.
+    for i in range(25):
+        assert f"`t{i:02d}.core_status_id" in result
+
+
+def test_incoming_relations_over_cap_are_truncated_with_summary():
+    table = TableMetadata(
+        name="core_status",
+        comment="",
+        columns=[Column(name="id", type="int", comment="", is_pk=True)],
+        outgoing=[],
+        incoming=[
+            Relation(from_table=f"t{i:03d}", from_column="core_status_id",
+                     to_table="core_status", to_column="id")
+            for i in range(212)
+        ],
+    )
+
+    result = render(table)
+    # First 25 (sorted alphabetically) are present.
+    for i in range(25):
+        assert f"`t{i:03d}.core_status_id" in result
+    # The 26th onwards are NOT individually present.
+    assert "`t025.core_status_id" not in result
+    assert "`t211.core_status_id" not in result
+    # Summary line with the overflow count and the noise-warning.
+    assert "…and 187 more inbound foreign keys" in result
+    assert "system-wide marker" in result
+
+
+def test_outgoing_relations_are_never_capped():
+    # We don't cap outgoing — they're nearly always small in count and
+    # represent the table's own structural dependencies.
+    table = TableMetadata(
+        name="busy_join",
+        comment="",
+        columns=[Column(name="id", type="int", comment="", is_pk=True)],
+        outgoing=[
+            Relation(from_table="busy_join", from_column=f"col_{i:02d}_id",
+                     to_table=f"target_{i:02d}", to_column="id")
+            for i in range(50)
+        ],
+        incoming=[],
+    )
+
+    result = render(table)
+    assert "more inbound foreign keys" not in result
+    # All 50 outgoing rows present.
+    for i in range(50):
+        assert f"`busy_join.col_{i:02d}_id" in result
+
+
 def test_pipe_in_column_comment_is_escaped():
     table = TableMetadata(
         name="settings",
