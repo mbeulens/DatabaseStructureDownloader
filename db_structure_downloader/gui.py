@@ -4,6 +4,7 @@ about SQL or markdown layout."""
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import traceback
@@ -27,6 +28,11 @@ APP_ID = "nl.syntec.DbStructureDownloader"
 # Project root → data/icons. Discovered relative to this module so the icon
 # follows the source tree without needing an install step.
 _ICON_SEARCH_PATH = Path(__file__).resolve().parent.parent / "data" / "icons"
+
+# Name of the optional per-export overrides file. If present in the chosen
+# output folder, its contents are merged into the Meaning column at export
+# time (highest precedence).
+COLUMN_MEANINGS_FILE = "column_meanings.json"
 
 
 class DbStructureApp(Adw.Application):
@@ -348,6 +354,30 @@ class ExportScreen(Gtk.Box):
         while ctx.pending():
             ctx.iteration(False)
 
+    def _load_column_overrides(self, folder: Path) -> dict[str, dict[str, str]]:
+        """Read column_meanings.json from the output folder if present.
+
+        Returns a {table_name: {column_name: meaning}} dict, or {} if the
+        file is missing or malformed. Any failure is reported via the
+        status area but never blocks the export."""
+        path = folder / COLUMN_MEANINGS_FILE
+        if not path.is_file():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            self._append_status(f"Warning: could not read {COLUMN_MEANINGS_FILE}: {e}")
+            return {}
+        if not isinstance(data, dict):
+            self._append_status(
+                f"Warning: {COLUMN_MEANINGS_FILE} must be a JSON object; ignoring."
+            )
+            return {}
+        self._append_status(
+            f"Loaded {COLUMN_MEANINGS_FILE} ({len(data)} table override(s))."
+        )
+        return data
+
     def _on_export_clicked(self, _btn) -> None:
         selected = [t for t, c in self._table_checks.items() if c.get_active()]
         if not selected:
@@ -360,6 +390,8 @@ class ExportScreen(Gtk.Box):
             self._show_toast(f"Cannot write to {self._output_folder}.")
             return
 
+        overrides = self._load_column_overrides(self._output_folder)
+
         exported = 0
         failed: list[tuple[str, str]] = []
         total = len(selected)
@@ -367,7 +399,7 @@ class ExportScreen(Gtk.Box):
         for i, table in enumerate(selected, start=1):
             try:
                 meta = db.fetch_table_metadata(self._conn, self._conn_args["database"], table)
-                content = render(meta)
+                content = render(meta, overrides=overrides.get(table))
                 (self._output_folder / f"{table}.md").write_text(content, encoding="utf-8")
                 exported += 1
                 self._append_status(f"Exported {table} ({i} / {total})")

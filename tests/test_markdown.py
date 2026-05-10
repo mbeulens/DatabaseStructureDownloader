@@ -249,6 +249,71 @@ def test_no_relations_section_when_no_fks():
     assert result.endswith("| message | text |  |\n")
 
 
+def test_override_takes_precedence_over_column_comment():
+    table = TableMetadata(
+        name="core_user",
+        comment="",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="login_name", type="varchar(200)",
+                   comment="raw DB comment", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    overrides = {"login_name": "User's unique login (display name in UI)"}
+    result = render(table, overrides=overrides)
+    assert "| login_name | varchar(200) | User's unique login (display name in UI) |" in result
+    assert "raw DB comment" not in result
+
+
+def test_override_applied_when_no_other_rule_matches():
+    table = TableMetadata(
+        name="core_role",
+        comment="",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="scope", type="text", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    overrides = {"scope": "JSON map of permissions granted by this role"}
+    result = render(table, overrides=overrides)
+    assert "| scope | text | JSON map of permissions granted by this role |" in result
+
+
+def test_no_overrides_argument_keeps_existing_behaviour():
+    # Backwards-compatible: callers that don't pass overrides see no change.
+    table = TableMetadata(
+        name="logs",
+        comment="",
+        columns=[Column(name="message", type="text", comment="", is_pk=False)],
+        outgoing=[],
+        incoming=[],
+    )
+
+    assert "| message | text |  |" in render(table)
+    assert "| message | text |  |" in render(table, overrides=None)
+    assert "| message | text |  |" in render(table, overrides={})
+
+
+def test_override_with_pipe_is_escaped():
+    table = TableMetadata(
+        name="settings",
+        comment="",
+        columns=[Column(name="mode", type="varchar(8)", comment="", is_pk=False)],
+        outgoing=[],
+        incoming=[],
+    )
+
+    overrides = {"mode": "Either 'on' | 'off'"}
+    result = render(table, overrides=overrides)
+    assert "| mode | varchar(8) | Either 'on' \\| 'off' |" in result
+
+
 def test_incoming_relations_under_cap_are_all_shown():
     table = TableMetadata(
         name="core_status",

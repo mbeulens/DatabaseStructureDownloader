@@ -22,7 +22,8 @@ _HARDCODED_MEANINGS: dict[str, str] = {
 }
 
 
-def render(table: TableMetadata) -> str:
+def render(table: TableMetadata, overrides: dict[str, str] | None = None) -> str:
+    overrides = overrides or {}
     parts: list[str] = []
     parts.append(f"# {table.name}")
     parts.append("")
@@ -36,7 +37,7 @@ def render(table: TableMetadata) -> str:
     parts.append("| Column | Type | Meaning |")
     parts.append("|---|---|---|")
     for col in table.columns:
-        meaning = _column_meaning(col, outgoing_by_column)
+        meaning = _column_meaning(col, outgoing_by_column, overrides)
         parts.append(f"| {col.name} | {col.type} | {meaning} |")
 
     has_relations = bool(table.outgoing) or bool(table.incoming)
@@ -61,7 +62,15 @@ def render(table: TableMetadata) -> str:
     return "\n".join(parts) + "\n"
 
 
-def _column_meaning(col: Column, outgoing_by_column: dict[str, Relation]) -> str:
+def _column_meaning(
+    col: Column,
+    outgoing_by_column: dict[str, Relation],
+    overrides: dict[str, str],
+) -> str:
+    # Manual override file wins over everything else.
+    if col.name in overrides and overrides[col.name].strip():
+        return _escape_pipes(overrides[col.name].strip())
+
     if col.comment.strip():
         return _escape_pipes(col.comment.strip())
 
