@@ -9,9 +9,21 @@ the underlying concepts.
 
 ## Setup
 
+The GUI is built with GTK4 + libadwaita. Install the system packages first:
+
 ```bash
-sudo apt install python3-tk    # Linux only — Tkinter is shipped separately on Debian/Ubuntu
-python3 -m venv .venv
+# Ubuntu / Debian
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
+# Fedora
+sudo dnf install python3-gobject gtk4 libadwaita
+# Arch
+sudo pacman -S python-gobject gtk4 libadwaita
+```
+
+Then create a venv that can see those system packages, and install PyMySQL into it:
+
+```bash
+python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
