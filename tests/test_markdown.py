@@ -416,9 +416,17 @@ def _meta(name: str, *targets: str) -> TableMetadata:
     )
 
 
-def test_overview_header_includes_database_name():
-    out = render_overview("testdb", [_meta("customers")])
-    assert out.startswith("# testdb — schema overview")
+def test_overview_header_frames_relationships_not_schema():
+    # The header is tuned to retrieve well on conceptual "how does X work"
+    # questions in RAG — "relationships" and "how tables connect" are the
+    # semantic hooks, "schema overview" is jargon that doesn't.
+    out = render_overview("syntec", [_meta("customers")])
+    assert out.startswith("# Syntec database — relationships and how tables connect")
+
+
+def test_overview_humanises_underscored_database_name():
+    out = render_overview("syntec_crm", [_meta("customers")])
+    assert out.startswith("# Syntec crm database — relationships and how tables connect")
 
 
 def test_overview_groups_tables_by_name_prefix():
@@ -488,5 +496,5 @@ def test_overview_misc_group_is_last():
 def test_overview_with_no_tables():
     out = render_overview("db", [])
     # Still emits the header and a hint, but no group sections.
-    assert "# db — schema overview" in out
+    assert "# Db database — relationships and how tables connect" in out
     assert "##" not in out

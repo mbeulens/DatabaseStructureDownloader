@@ -116,11 +116,18 @@ def render_overview(database: str, tables: list[TableMetadata]) -> str:
     outgoing foreign keys so subsystem boundaries are visible at a glance.
     """
     parts: list[str] = []
-    parts.append(f"# {database} — schema overview")
+    parts.append(
+        f"# {_humanise_table_name(database)} database — "
+        "relationships and how tables connect"
+    )
     parts.append("")
     parts.append(
-        "Every exported table grouped by name prefix. Arrows are outgoing "
-        "foreign keys; the target table may live in another group."
+        "This file describes how the tables in the database connect to each "
+        "other. Tables are grouped by name prefix, which usually marks a "
+        "subsystem (for example all `core_*` tables form the core subsystem). "
+        "The arrow `→` shows which other tables a given table references "
+        "through a foreign key; the target may belong to a different group, "
+        "which makes cross-subsystem dependencies easy to spot."
     )
 
     groups: dict[str, list[TableMetadata]] = {}
