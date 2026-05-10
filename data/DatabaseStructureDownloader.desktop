@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Database Structure Downloader
+Comment=Export MySQL table structures to markdown for RAG knowledgebases
+Exec=/home/beuner/Development/Local/DatabaseStructureDownloader/bin/launch.sh
+Icon=/home/beuner/Development/Local/DatabaseStructureDownloader/data/icons/hicolor/scalable/apps/nl.syntec.DbStructureDownloader.svg
+Terminal=false
+Categories=Development;Database;GTK;
+Keywords=mysql;database;schema;export;markdown;rag;
+StartupNotify=true
+StartupWMClass=nl.syntec.DbStructureDownloader
