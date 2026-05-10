@@ -21,9 +21,18 @@ class App(tk.Tk):
         super().__init__()
         self.title("Database Structure Downloader")
         self.geometry("600x500")
+        self.report_callback_exception = self._on_unhandled_exception
         self._container = ttk.Frame(self, padding=12)
         self._container.pack(fill="both", expand=True)
         self._show_connection_screen()
+
+    def _on_unhandled_exception(self, exc_type, exc_value, exc_tb) -> None:
+        import traceback
+        traceback.print_exception(exc_type, exc_value, exc_tb)
+        messagebox.showerror(
+            "Unexpected error",
+            f"{exc_type.__name__}: {exc_value}\n\nThe app will keep running.",
+        )
 
     def _show_connection_screen(self) -> None:
         for child in self._container.winfo_children():
