@@ -36,7 +36,7 @@ def test_full_table_renders_all_sections():
         "|---|---|---|\n"
         f"| id | char(36) | {ID_MEANING} |\n"
         "| name | varchar(200) | Legal name |\n"
-        "| kvk_number | varchar(8) | kvk_number |\n"
+        "| kvk_number | varchar(8) |  |\n"
         "\n"
         "**Relations:**\n"
         "- `contacts.customer_id → customers.id`\n"
@@ -174,9 +174,10 @@ def test_id_suffix_with_outgoing_fk_renders_as_foreign_key():
     assert "| customer_id | char(36) | Foreign key customers |" in result
 
 
-def test_id_suffix_without_relation_falls_back_to_column_name():
+def test_id_suffix_without_relation_falls_through_to_blank():
     # An *_id column that is NOT a real FK (no INFORMATION_SCHEMA row) must
-    # not be labelled as a foreign key — fall through to the column name.
+    # not be labelled as a foreign key. With nothing else to say, the Meaning
+    # cell is left blank rather than echoing the column name.
     table = TableMetadata(
         name="webhook_events",
         comment="",
@@ -189,7 +190,7 @@ def test_id_suffix_without_relation_falls_back_to_column_name():
     )
 
     result = render(table)
-    assert "| external_id | varchar(64) | external_id |" in result
+    assert "| external_id | varchar(64) |  |" in result
 
 
 def test_core_status_id_hardcoded_meaning_beats_fk_meaning():
@@ -214,7 +215,7 @@ def test_core_status_id_hardcoded_meaning_beats_fk_meaning():
     assert "Foreign key core_status" not in result
 
 
-def test_default_fallback_uses_column_name():
+def test_default_fallback_leaves_meaning_blank():
     table = TableMetadata(
         name="logs",
         comment="Append-only audit log.",
@@ -227,7 +228,7 @@ def test_default_fallback_uses_column_name():
     )
 
     result = render(table)
-    assert "| message | text | message |" in result
+    assert "| message | text |  |" in result
 
 
 def test_no_relations_section_when_no_fks():
@@ -245,7 +246,7 @@ def test_no_relations_section_when_no_fks():
     result = render(table)
 
     assert "**Relations:**" not in result
-    assert result.endswith("| message | text | message |\n")
+    assert result.endswith("| message | text |  |\n")
 
 
 def test_pipe_in_column_comment_is_escaped():

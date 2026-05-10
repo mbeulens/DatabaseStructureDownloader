@@ -59,7 +59,7 @@ def _column_meaning(col: Column, outgoing_by_column: dict[str, Relation]) -> str
     if col.is_pk:
         return "PK"
 
-    return col.name
+    return ""
 
 
 def _format_relation(rel: Relation) -> str:
