@@ -18,7 +18,7 @@ from gi.repository import Adw, Gdk, Gtk, GLib, Gio  # noqa: E402
 
 import pymysql  # noqa: E402
 
-from db_structure_downloader import config, db  # noqa: E402
+from db_structure_downloader import __version__, config, db  # noqa: E402
 from db_structure_downloader.markdown import render  # noqa: E402
 
 
@@ -60,7 +60,14 @@ class MainWindow(Adw.ApplicationWindow):
         self.set_content(self._toast_overlay)
 
         toolbar = Adw.ToolbarView()
-        toolbar.add_top_bar(Adw.HeaderBar())
+        header = Adw.HeaderBar()
+        header.set_title_widget(
+            Adw.WindowTitle(
+                title="Database Structure Downloader",
+                subtitle=f"v{__version__}",
+            )
+        )
+        toolbar.add_top_bar(header)
         self._toast_overlay.set_child(toolbar)
 
         self._stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
