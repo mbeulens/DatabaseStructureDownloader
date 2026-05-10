@@ -57,3 +57,22 @@ def test_empty_comments_emit_todo_placeholders():
     assert "| amount | decimal(10,2) | _TODO_ |" in result
     # PK column with no comment still gets "PK" not "_TODO_"
     assert "| id | bigint | PK |" in result
+
+
+def test_no_relations_section_when_no_fks():
+    table = TableMetadata(
+        name="logs",
+        comment="Append-only audit log.",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="message", type="text", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+
+    assert "**Relations:**" not in result
+    # Last line is still the columns table row, plus a single trailing newline.
+    assert result.endswith("| message | text | _TODO_ |\n")
