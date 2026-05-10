@@ -37,3 +37,23 @@ def test_full_table_renders_all_sections():
     )
 
     assert render(table) == expected
+
+
+def test_empty_comments_emit_todo_placeholders():
+    table = TableMetadata(
+        name="orders",
+        comment="",
+        columns=[
+            Column(name="id", type="bigint", comment="", is_pk=True),
+            Column(name="amount", type="decimal(10,2)", comment="", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+
+    assert "**Purpose:** _TODO: describe purpose_" in result
+    assert "| amount | decimal(10,2) | _TODO_ |" in result
+    # PK column with no comment still gets "PK" not "_TODO_"
+    assert "| id | bigint | PK |" in result
