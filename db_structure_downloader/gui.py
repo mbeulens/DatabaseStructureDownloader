@@ -172,6 +172,7 @@ class ExportScreen(Gtk.Box):
         self._toast_overlay = toast_overlay
         self._table_checks: dict[str, Gtk.CheckButton] = {}
         self._output_folder: Path | None = None
+        self._search_query = ""
 
         clamp = Adw.Clamp(
             maximum_size=640,
@@ -192,14 +193,26 @@ class ExportScreen(Gtk.Box):
         title.add_css_class("title-1")
         outer.append(title)
 
+        search_entry = Gtk.SearchEntry(
+            placeholder_text="Filter tables…",
+            hexpand=True,
+        )
+        search_entry.connect("search-changed", self._on_search_changed)
+        outer.append(search_entry)
+
         select_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         outer.append(select_row)
-        sel_all = Gtk.Button(label="Select all")
-        sel_all.connect("clicked", lambda _b: self._set_all(True))
+        sel_all = Gtk.Button(label="Select visible")
+        sel_all.set_tooltip_text("Select all tables matching the filter")
+        sel_all.connect("clicked", lambda _b: self._set_visible(True))
         select_row.append(sel_all)
-        desel_all = Gtk.Button(label="Deselect all")
-        desel_all.connect("clicked", lambda _b: self._set_all(False))
+        desel_all = Gtk.Button(label="Deselect visible")
+        desel_all.set_tooltip_text("Deselect all tables matching the filter")
+        desel_all.connect("clicked", lambda _b: self._set_visible(False))
         select_row.append(desel_all)
+        self._match_count = Gtk.Label(xalign=1, hexpand=True)
+        self._match_count.add_css_class("dim-label")
+        select_row.append(self._match_count)
 
         scrolled = Gtk.ScrolledWindow(
             vexpand=True,
@@ -210,6 +223,7 @@ class ExportScreen(Gtk.Box):
 
         self._listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self._listbox.add_css_class("boxed-list")
+        self._listbox.set_filter_func(self._filter_row)
         scrolled.set_child(self._listbox)
 
         folder_group = Adw.PreferencesGroup()
@@ -263,10 +277,33 @@ class ExportScreen(Gtk.Box):
             row.set_activatable_widget(check)
             self._listbox.append(row)
             self._table_checks[name] = check
+        self._update_match_count()
 
-    def _set_all(self, value: bool) -> None:
-        for check in self._table_checks.values():
-            check.set_active(value)
+    def _matches_filter(self, name: str) -> bool:
+        return not self._search_query or self._search_query in name.lower()
+
+    def _filter_row(self, row: Gtk.ListBoxRow) -> bool:
+        if isinstance(row, Adw.ActionRow):
+            return self._matches_filter(row.get_title())
+        return True
+
+    def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
+        self._search_query = entry.get_text().strip().lower()
+        self._listbox.invalidate_filter()
+        self._update_match_count()
+
+    def _update_match_count(self) -> None:
+        total = len(self._table_checks)
+        if not self._search_query:
+            self._match_count.set_text(f"{total} tables")
+            return
+        visible = sum(1 for n in self._table_checks if self._matches_filter(n))
+        self._match_count.set_text(f"{visible} of {total} match")
+
+    def _set_visible(self, value: bool) -> None:
+        for name, check in self._table_checks.items():
+            if self._matches_filter(name):
+                check.set_active(value)
 
     def _on_browse_clicked(self, _btn) -> None:
         dialog = Gtk.FileDialog(title="Choose output folder")
