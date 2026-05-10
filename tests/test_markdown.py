@@ -76,3 +76,20 @@ def test_no_relations_section_when_no_fks():
     assert "**Relations:**" not in result
     # Last line is still the columns table row, plus a single trailing newline.
     assert result.endswith("| message | text | _TODO_ |\n")
+
+
+def test_pipe_in_column_comment_is_escaped():
+    table = TableMetadata(
+        name="settings",
+        comment="",
+        columns=[
+            Column(name="value", type="varchar(255)",
+                   comment="Either 'on' | 'off'", is_pk=False),
+        ],
+        outgoing=[],
+        incoming=[],
+    )
+
+    result = render(table)
+
+    assert "| value | varchar(255) | Either 'on' \\| 'off' |" in result
