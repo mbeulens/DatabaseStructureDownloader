@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="dbBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#42a5f5"/>
+      <stop offset="100%" stop-color="#0d47a1"/>
+    </linearGradient>
+    <linearGradient id="dbTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#90caf9"/>
+      <stop offset="100%" stop-color="#42a5f5"/>
+    </linearGradient>
+    <linearGradient id="badgeGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#66bb6a"/>
+      <stop offset="100%" stop-color="#1b5e20"/>
+    </linearGradient>
+    <filter id="dbShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="badgeShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Database cylinder -->
+  <g filter="url(#dbShadow)">
+    <!-- Body: rectangle with rounded ellipse-shaped bottom -->
+    <path d="M 16 24 L 16 80 C 16 89 34 97 56 97 C 78 97 96 89 96 80 L 96 24 Z"
+          fill="url(#dbBody)"/>
+
+    <!-- Stripe lines (suggest stacked discs) -->
+    <ellipse cx="56" cy="50" rx="40" ry="9" fill="none"
+             stroke="#bbdefb" stroke-width="1.2" opacity="0.55"/>
+    <ellipse cx="56" cy="68" rx="40" ry="9" fill="none"
+             stroke="#bbdefb" stroke-width="1.2" opacity="0.55"/>
+
+    <!-- Top disc -->
+    <ellipse cx="56" cy="24" rx="40" ry="11" fill="url(#dbTop)"/>
+    <ellipse cx="56" cy="22" rx="33" ry="6" fill="#e3f2fd" opacity="0.55"/>
+    <ellipse cx="56" cy="24" rx="40" ry="11" fill="none"
+             stroke="#0d47a1" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- Green download badge in the bottom-right -->
+  <g filter="url(#badgeShadow)">
+    <circle cx="100" cy="100" r="24" fill="url(#badgeGreen)"/>
+    <circle cx="100" cy="100" r="24" fill="none"
+            stroke="#0d3b0e" stroke-width="1" opacity="0.5"/>
+
+    <!-- Vertical arrow shaft -->
+    <path d="M 100 86 L 100 110"
+          stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+    <!-- Chevron head -->
+    <path d="M 88 99 L 100 112 L 112 99"
+          stroke="#fff" stroke-width="5" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

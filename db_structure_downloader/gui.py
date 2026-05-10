@@ -14,7 +14,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk, GLib, Gio  # noqa: E402
+from gi.repository import Adw, Gdk, Gtk, GLib, Gio  # noqa: E402
 
 import pymysql  # noqa: E402
 
@@ -24,6 +24,10 @@ from db_structure_downloader.markdown import render  # noqa: E402
 
 APP_ID = "nl.syntec.DbStructureDownloader"
 
+# Project root → data/icons. Discovered relative to this module so the icon
+# follows the source tree without needing an install step.
+_ICON_SEARCH_PATH = Path(__file__).resolve().parent.parent / "data" / "icons"
+
 
 class DbStructureApp(Adw.Application):
     def __init__(self) -> None:
@@ -32,14 +36,24 @@ class DbStructureApp(Adw.Application):
 
     def do_activate(self) -> None:
         if self._win is None:
+            self._register_icon_path()
             self._win = MainWindow(application=self)
         self._win.present()
+
+    def _register_icon_path(self) -> None:
+        if not _ICON_SEARCH_PATH.is_dir():
+            return
+        display = Gdk.Display.get_default()
+        if display is None:
+            return
+        Gtk.IconTheme.get_for_display(display).add_search_path(str(_ICON_SEARCH_PATH))
 
 
 class MainWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.set_title("Database Structure Downloader")
+        self.set_icon_name(APP_ID)
         self.set_default_size(640, 720)
 
         self._toast_overlay = Adw.ToastOverlay()
