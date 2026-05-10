@@ -46,7 +46,7 @@ def test_full_table_renders_all_sections():
     assert render(table) == expected
 
 
-def test_empty_table_comment_emits_purpose_placeholder():
+def test_empty_table_comment_falls_back_to_humanised_table_name():
     table = TableMetadata(
         name="orders",
         comment="",
@@ -55,7 +55,44 @@ def test_empty_table_comment_emits_purpose_placeholder():
         incoming=[],
     )
 
-    assert "**Purpose:** _TODO: describe purpose_" in render(table)
+    assert "**Purpose:** Orders" in render(table)
+
+
+def test_snake_case_table_name_becomes_normal_text_for_purpose():
+    table = TableMetadata(
+        name="audit_logs",
+        comment="",
+        columns=[Column(name="id", type="bigint", comment="", is_pk=True)],
+        outgoing=[],
+        incoming=[],
+    )
+
+    assert "**Purpose:** Audit logs" in render(table)
+
+
+def test_multi_word_snake_case_table_name_for_purpose():
+    table = TableMetadata(
+        name="customer_engagement_history",
+        comment="",
+        columns=[Column(name="id", type="bigint", comment="", is_pk=True)],
+        outgoing=[],
+        incoming=[],
+    )
+
+    assert "**Purpose:** Customer engagement history" in render(table)
+
+
+def test_table_comment_still_wins_over_humanised_name():
+    table = TableMetadata(
+        name="audit_logs",
+        comment="Append-only audit trail for compliance.",
+        columns=[Column(name="id", type="bigint", comment="", is_pk=True)],
+        outgoing=[],
+        incoming=[],
+    )
+
+    assert "**Purpose:** Append-only audit trail for compliance." in render(table)
+    assert "Audit logs" not in render(table)
 
 
 def test_column_with_comment_uses_comment_verbatim():

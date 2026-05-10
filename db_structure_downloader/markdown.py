@@ -6,8 +6,6 @@ from __future__ import annotations
 from db_structure_downloader.db import Column, Relation, TableMetadata
 
 
-_TODO_PURPOSE = "_TODO: describe purpose_"
-
 # Syntec-wide column conventions. Keys are matched case-insensitively.
 _HARDCODED_MEANINGS: dict[str, str] = {
     "id": "Unique internal row Identifiers (Used for JOINS)",
@@ -24,7 +22,7 @@ def render(table: TableMetadata) -> str:
     parts.append("")
 
     purpose = table.comment.strip() if table.comment else ""
-    parts.append(f"**Purpose:** {purpose or _TODO_PURPOSE}")
+    parts.append(f"**Purpose:** {purpose or _humanise_table_name(table.name)}")
     parts.append("")
 
     outgoing_by_column = {rel.from_column: rel for rel in table.outgoing}
@@ -70,3 +68,12 @@ def _format_relation(rel: Relation) -> str:
 
 def _escape_pipes(text: str) -> str:
     return text.replace("|", "\\|")
+
+
+def _humanise_table_name(name: str) -> str:
+    """`audit_logs` → `Audit logs`. Preserves case in non-leading words so
+    acronyms like `CRM_users` survive as `CRM users`."""
+    if not name:
+        return name
+    text = name.replace("_", " ")
+    return text[0].upper() + text[1:]
