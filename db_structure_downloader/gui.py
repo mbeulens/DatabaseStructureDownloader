@@ -20,7 +20,7 @@ from gi.repository import Adw, Gdk, Gtk, GLib, Gio  # noqa: E402
 import pymysql  # noqa: E402
 
 from db_structure_downloader import __version__, config, db  # noqa: E402
-from db_structure_downloader.markdown import render  # noqa: E402
+from db_structure_downloader.markdown import render, render_overview  # noqa: E402
 
 
 APP_ID = "nl.syntec.DbStructureDownloader"
@@ -394,6 +394,7 @@ class ExportScreen(Gtk.Box):
 
         exported = 0
         failed: list[tuple[str, str]] = []
+        succeeded_metas: list = []
         total = len(selected)
 
         for i, table in enumerate(selected, start=1):
@@ -402,10 +403,19 @@ class ExportScreen(Gtk.Box):
                 content = render(meta, overrides=overrides.get(table))
                 (self._output_folder / f"{table}.md").write_text(content, encoding="utf-8")
                 exported += 1
+                succeeded_metas.append(meta)
                 self._append_status(f"Exported {table} ({i} / {total})")
             except (pymysql.Error, OSError) as e:
                 failed.append((table, str(e)))
                 self._append_status(f"Failed: {table} — {e}")
+
+        if succeeded_metas:
+            try:
+                overview_md = render_overview(self._conn_args["database"], succeeded_metas)
+                (self._output_folder / "_overview.md").write_text(overview_md, encoding="utf-8")
+                self._append_status("Wrote _overview.md")
+            except OSError as e:
+                self._append_status(f"Warning: could not write _overview.md: {e}")
 
         if failed:
             self._append_status(

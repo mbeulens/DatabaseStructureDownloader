@@ -1,5 +1,5 @@
 from db_structure_downloader.db import Column, Relation, TableMetadata
-from db_structure_downloader.markdown import render
+from db_structure_downloader.markdown import render, render_overview
 
 
 ID_MEANING = "Unique internal row Identifiers (Used for JOINS)"
@@ -396,3 +396,97 @@ def test_pipe_in_column_comment_is_escaped():
     result = render(table)
 
     assert "| value | varchar(255) | Either 'on' \\| 'off' |" in result
+
+
+# --- render_overview ----------------------------------------------------------
+
+
+def _meta(name: str, *targets: str) -> TableMetadata:
+    """Convenience: build a stub TableMetadata with the given outgoing FKs."""
+    return TableMetadata(
+        name=name,
+        comment="",
+        columns=[Column(name="id", type="int", comment="", is_pk=True)],
+        outgoing=[
+            Relation(from_table=name, from_column=f"{t}_id",
+                     to_table=t, to_column="id")
+            for t in targets
+        ],
+        incoming=[],
+    )
+
+
+def test_overview_header_includes_database_name():
+    out = render_overview("testdb", [_meta("customers")])
+    assert out.startswith("# testdb — schema overview")
+
+
+def test_overview_groups_tables_by_name_prefix():
+    tables = [
+        _meta("core_role"),
+        _meta("core_user"),
+        _meta("crm_lead", "core_user"),
+        _meta("customers"),
+    ]
+    out = render_overview("syntec", tables)
+    assert "## core" in out
+    assert "## crm" in out
+    # No `_` → goes into (misc).
+    assert "## (misc)" in out
+    # core section lists both core_* tables, crm section lists crm_* table.
+    core_idx = out.index("## core")
+    crm_idx = out.index("## crm")
+    misc_idx = out.index("## (misc)")
+    assert core_idx < crm_idx < misc_idx
+    core_block = out[core_idx:crm_idx]
+    assert "- core_role" in core_block
+    assert "- core_user" in core_block
+
+
+def test_overview_renders_outgoing_arrow():
+    tables = [
+        _meta("core_user_role", "core_role", "core_user"),
+        _meta("core_role"),
+        _meta("core_user"),
+    ]
+    out = render_overview("db", tables)
+    # The composite table has outgoing FKs shown after an arrow.
+    assert "- core_user_role → core_role, core_user" in out
+    # The leaf tables have no arrow.
+    assert "- core_role\n" in out
+    assert "- core_user\n" in out
+
+
+def test_overview_deduplicates_outgoing_targets():
+    # A multi-column FK to the same table should appear once.
+    t = TableMetadata(
+        name="join_table",
+        comment="",
+        columns=[Column(name="id", type="int", comment="", is_pk=True)],
+        outgoing=[
+            Relation(from_table="join_table", from_column="a_id",
+                     to_table="parent", to_column="id"),
+            Relation(from_table="join_table", from_column="b_id",
+                     to_table="parent", to_column="id"),
+        ],
+        incoming=[],
+    )
+    out = render_overview("db", [t])
+    assert "- join_table → parent\n" in out
+    # parent appears once in the arrow list.
+    assert out.count("parent") == 1
+
+
+def test_overview_misc_group_is_last():
+    tables = [_meta("customers"), _meta("audit_logs"), _meta("crm_lead")]
+    out = render_overview("db", tables)
+    # Both prefixed groups come before (misc).
+    assert out.index("## audit") < out.index("## (misc)")
+    assert out.index("## crm") < out.index("## (misc)")
+
+
+def test_overview_with_no_tables():
+    out = render_overview("db", [])
+    # Still emits the header and a hint, but no group sections.
+    assert "# db — schema overview" in out
+    assert "##" not in out

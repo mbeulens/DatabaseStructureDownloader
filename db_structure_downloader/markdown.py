@@ -102,3 +102,44 @@ def _humanise_table_name(name: str) -> str:
         return name
     text = name.replace("_", " ")
     return text[0].upper() + text[1:]
+
+
+_MISC_GROUP = "(misc)"
+
+
+def render_overview(database: str, tables: list[TableMetadata]) -> str:
+    """Render a single-file overview that groups tables by name prefix.
+
+    One chunk in RAG terms — gives the model a "system shape" view it can
+    retrieve when asked questions like "how does the role system fit
+    together" that span multiple tables. Each table is listed with its
+    outgoing foreign keys so subsystem boundaries are visible at a glance.
+    """
+    parts: list[str] = []
+    parts.append(f"# {database} — schema overview")
+    parts.append("")
+    parts.append(
+        "Every exported table grouped by name prefix. Arrows are outgoing "
+        "foreign keys; the target table may live in another group."
+    )
+
+    groups: dict[str, list[TableMetadata]] = {}
+    for table in tables:
+        prefix = table.name.split("_", 1)[0] if "_" in table.name else _MISC_GROUP
+        groups.setdefault(prefix, []).append(table)
+
+    def group_sort_key(name: str) -> tuple[int, str]:
+        # (misc) always last; everything else alphabetical.
+        return (1 if name == _MISC_GROUP else 0, name)
+
+    for group_name in sorted(groups, key=group_sort_key):
+        parts.append("")
+        parts.append(f"## {group_name}")
+        for table in sorted(groups[group_name], key=lambda t: t.name):
+            targets = sorted({rel.to_table for rel in table.outgoing})
+            if targets:
+                parts.append(f"- {table.name} → {', '.join(targets)}")
+            else:
+                parts.append(f"- {table.name}")
+
+    return "\n".join(parts) + "\n"
